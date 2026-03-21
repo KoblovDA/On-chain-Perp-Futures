@@ -23,7 +23,9 @@
 ## Frontend Rules
 - Next.js 14 with App Router
 - wagmi v2 + viem for Web3
-- TailwindCSS + shadcn/ui for styling
+- TailwindCSS v3 + custom UI components (Button, Card) for styling
+- RainbowKit for wallet connection
+- sonner for toast notifications
 - Beautiful, clean, professional UI
 - Show health factor with color coding (green > 2.0, yellow 1.5-2.0, orange 1.1-1.5, red < 1.1)
 - Always show transaction status (pending/success/failed)
@@ -37,9 +39,13 @@
 
 ## Testing Rules
 - Test every phase before moving to the next
-- Use Hardhat forked Sepolia for contract tests
+- Use fully mocked environment (MockPool, MockOracle, MockSwapRouter) for unit tests
 - Manual E2E testing on live Sepolia after deployment
 - All tests must pass before proceeding
+
+## Deployed Contracts (Sepolia)
+- PositionManager: `0x1f15AA1DaB4933900A6C2Ea8F5D2d28fAAA5e5eD`
+- MockSwapRouter: `0xFdaD24fE8b093E1f20842BbF9AE80A179d80c3A9`
 
 ## Do NOT
 - Re-read the PDF article (key ideas extracted to article-notes.md)
