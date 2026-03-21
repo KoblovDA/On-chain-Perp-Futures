@@ -14,13 +14,13 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/trade" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 font-bold text-white text-sm">
             LT
           </div>
-          <span className="text-lg font-semibold text-white">
+          <span className="hidden sm:inline text-lg font-semibold text-white">
             Leveraged Trading
           </span>
         </Link>
@@ -33,7 +33,7 @@ export function Header() {
               <Link
                 key={href}
                 href={href}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 sm:px-4 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-zinc-800 text-white"
                     : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
@@ -49,7 +49,7 @@ export function Header() {
         <ConnectButton
           chainStatus="icon"
           showBalance={false}
-          accountStatus="address"
+          accountStatus={{ smallScreen: "avatar", largeScreen: "address" }}
         />
       </div>
     </header>

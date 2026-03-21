@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/providers/Web3Provider";
 import { Header } from "@/components/layout/Header";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,13 @@ export default function RootLayout({
         <Web3Provider>
           <Header />
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <Toaster
+            theme="dark"
+            position="bottom-right"
+            toastOptions={{
+              style: { background: "#18181b", border: "1px solid #27272a", color: "#fafafa" },
+            }}
+          />
         </Web3Provider>
       </body>
     </html>

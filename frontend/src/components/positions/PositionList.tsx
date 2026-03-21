@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useReadContracts } from "wagmi";
+import { toast } from "sonner";
 import {
   useUserPositions,
   useCloseLong,
@@ -13,13 +14,13 @@ import { PositionCard, type Position } from "./PositionCard";
 
 export function PositionList() {
   const { address, isConnected } = useAccount();
-  const { data: positionIds, refetch: refetchIds } = useUserPositions(address);
+  const { data: positionIds, isLoading: isLoadingIds, refetch: refetchIds } =
+    useUserPositions(address);
 
   const closeLong = useCloseLong();
   const closeShort = useCloseShort();
   const [closingId, setClosingId] = useState<bigint | null>(null);
 
-  // Build multicall for all position details
   const contracts = (positionIds || []).map((id) => ({
     address: POSITION_MANAGER_ADDRESS,
     abi: POSITION_MANAGER_ABI,
@@ -27,19 +28,34 @@ export function PositionList() {
     args: [id] as const,
   }));
 
-  const { data: positionsData, refetch: refetchPositions } = useReadContracts({
-    contracts,
-    query: { enabled: contracts.length > 0 },
-  });
+  const { data: positionsData, isLoading: isLoadingPositions, refetch: refetchPositions } =
+    useReadContracts({
+      contracts,
+      query: { enabled: contracts.length > 0 },
+    });
 
-  // Refetch after close
+  // Toast + refetch on close success
   useEffect(() => {
     if (closeLong.isSuccess || closeShort.isSuccess) {
+      toast.dismiss("close");
+      toast.success("Position closed successfully");
       setClosingId(null);
       refetchIds();
       refetchPositions();
     }
   }, [closeLong.isSuccess, closeShort.isSuccess, refetchIds, refetchPositions]);
+
+  // Toast on close error
+  useEffect(() => {
+    const err = closeLong.error || closeShort.error;
+    if (err) {
+      toast.dismiss("close");
+      toast.error("Failed to close position", {
+        description: (err as Error).message?.slice(0, 80),
+      });
+      setClosingId(null);
+    }
+  }, [closeLong.error, closeShort.error]);
 
   const handleClose = (positionId: bigint) => {
     const idx = (positionIds || []).findIndex((id) => id === positionId);
@@ -47,6 +63,7 @@ export function PositionList() {
 
     const pos = positionsData[idx].result as unknown as Position;
     setClosingId(positionId);
+    toast.loading("Closing position...", { id: "close" });
 
     if (pos.positionType === 0) {
       closeLong.closeLong(positionId);
@@ -63,6 +80,19 @@ export function PositionList() {
     );
   }
 
+  if (isLoadingIds || isLoadingPositions) {
+    return (
+      <div className="space-y-3">
+        {[1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-32 animate-pulse rounded-xl border border-zinc-800 bg-zinc-900"
+          />
+        ))}
+      </div>
+    );
+  }
+
   if (!positionIds || positionIds.length === 0) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-12 text-center">
@@ -74,11 +104,12 @@ export function PositionList() {
     );
   }
 
-  // Separate active and closed
-  const positions = (positionIds || []).map((id, i) => ({
-    id,
-    data: positionsData?.[i]?.result as unknown as Position | undefined,
-  })).filter((p): p is { id: bigint; data: Position } => !!p.data);
+  const positions = (positionIds || [])
+    .map((id, i) => ({
+      id,
+      data: positionsData?.[i]?.result as unknown as Position | undefined,
+    }))
+    .filter((p): p is { id: bigint; data: Position } => !!p.data);
 
   const active = positions.filter((p) => p.data.isActive);
   const closed = positions.filter((p) => !p.data.isActive);
@@ -117,13 +148,6 @@ export function PositionList() {
             />
           ))}
         </div>
-      )}
-
-      {(closeLong.error || closeShort.error) && (
-        <p className="text-center text-sm text-red-400">
-          {((closeLong.error || closeShort.error) as Error)?.message?.slice(0, 100) ||
-            "Failed to close position"}
-        </p>
       )}
     </div>
   );
