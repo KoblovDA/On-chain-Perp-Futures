@@ -23,6 +23,9 @@ export function Header() {
           <span className="hidden sm:inline text-lg font-semibold text-white">
             Leveraged Trading
           </span>
+          <span className="hidden sm:inline rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
+            Sepolia
+          </span>
         </Link>
 
         {/* Navigation */}

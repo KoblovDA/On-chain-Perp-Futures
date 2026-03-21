@@ -14,6 +14,7 @@ import {
   useOpenShort,
 } from "@/hooks/usePositionManager";
 import { USDC_ADDRESS, POSITION_MANAGER_ADDRESS } from "@/lib/contracts";
+import { parseError } from "@/lib/errors";
 
 type Side = "long" | "short";
 
@@ -73,9 +74,7 @@ export function TradePanel() {
 
   useEffect(() => {
     if (approve.error) {
-      toast.error("Approval failed", {
-        description: (approve.error as Error).message?.slice(0, 80),
-      });
+      toast.error("Approval failed", { description: parseError(approve.error) });
     }
   }, [approve.error]);
 
@@ -93,9 +92,7 @@ export function TradePanel() {
   useEffect(() => {
     const err = openLong.error || openShort.error;
     if (err) {
-      toast.error("Transaction failed", {
-        description: (err as Error).message?.slice(0, 80),
-      });
+      toast.error("Transaction failed", { description: parseError(err) });
     }
   }, [openLong.error, openShort.error]);
 

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/providers/Web3Provider";
 import { Header } from "@/components/layout/Header";
+import { NetworkWarning } from "@/components/layout/NetworkWarning";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,6 +26,7 @@ export default function RootLayout({
       >
         <Web3Provider>
           <Header />
+          <NetworkWarning />
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
           <Toaster
             theme="dark"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useReadContracts } from "wagmi";
 import { toast } from "sonner";
+import { parseError } from "@/lib/errors";
 import {
   useUserPositions,
   useCloseLong,
@@ -50,9 +51,7 @@ export function PositionList() {
     const err = closeLong.error || closeShort.error;
     if (err) {
       toast.dismiss("close");
-      toast.error("Failed to close position", {
-        description: (err as Error).message?.slice(0, 80),
-      });
+      toast.error("Failed to close position", { description: parseError(err) });
       setClosingId(null);
     }
   }, [closeLong.error, closeShort.error]);
