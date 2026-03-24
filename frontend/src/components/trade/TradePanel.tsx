@@ -34,7 +34,7 @@ export function TradePanel() {
   const [marginInput, setMarginInput] = useState("");
   const [leverageBps, setLeverageBps] = useState(20000);
 
-  const { data: usdcBalance, refetch: refetchBalance } = useTokenBalance(USDC_ADDRESS, address);
+  const { data: usdcBalance, refetch: refetchBalance } = useTokenBalance(USDC_ADDRESS, address, { refetchInterval: 5000 });
   const { data: allowance, refetch: refetchAllowance } = useAllowance(
     USDC_ADDRESS,
     address,
@@ -62,7 +62,9 @@ export function TradePanel() {
     : "0.00";
 
   const needsApproval = allowance !== undefined && marginAmount > 0n && allowance < marginAmount;
+  const balanceLoading = isConnected && !!address && usdcBalance === undefined;
   const hasBalance = usdcBalance !== undefined && marginAmount > 0n && usdcBalance >= marginAmount;
+  const insufficientBalance = usdcBalance !== undefined && marginAmount > 0n && usdcBalance < marginAmount;
 
   // Toast notifications
   useEffect(() => {
@@ -266,7 +268,7 @@ export function TradePanel() {
         ) : (
           <Button
             onClick={handleTrade}
-            disabled={!hasBalance || marginAmount === 0n || isTrading}
+            disabled={balanceLoading || insufficientBalance || marginAmount === 0n || isTrading}
             className={`w-full h-12 text-base transition-colors ${
               side === "long"
                 ? "bg-emerald-600 hover:bg-emerald-700"
@@ -278,7 +280,11 @@ export function TradePanel() {
               <span className="flex items-center gap-2">
                 <Spinner /> Opening Position...
               </span>
-            ) : !hasBalance && marginAmount > 0n ? (
+            ) : balanceLoading ? (
+              <span className="flex items-center gap-2">
+                <Spinner /> Loading balance...
+              </span>
+            ) : insufficientBalance ? (
               "Insufficient USDC"
             ) : marginAmount === 0n ? (
               "Enter Amount"

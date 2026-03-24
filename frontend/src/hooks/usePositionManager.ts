@@ -39,13 +39,13 @@ export function useUserPositions(user: Address | undefined) {
   });
 }
 
-export function useTokenBalance(token: Address, user: Address | undefined) {
+export function useTokenBalance(token: Address, user: Address | undefined, options?: { refetchInterval?: number }) {
   return useReadContract({
     address: token,
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: user ? [user] : undefined,
-    query: { enabled: !!user },
+    query: { enabled: !!user, refetchInterval: options?.refetchInterval },
   });
 }
 
