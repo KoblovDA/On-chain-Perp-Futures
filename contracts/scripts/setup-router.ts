@@ -12,7 +12,7 @@ import { ethers } from "hardhat";
 
 const MOCK_SWAP_ROUTER = "0xFdaD24fE8b093E1f20842BbF9AE80A179d80c3A9";
 const WETH = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c";
-const USDC = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+const USDC = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8";
 
 // 1 WETH = 2000 USDC
 const WETH_USDC_RATE = ethers.parseEther("2000");
@@ -20,7 +20,7 @@ const USDC_WETH_RATE = ethers.parseEther("0.0005");
 
 // Amount to fund the router with
 const WETH_FUND = ethers.parseEther("0.01");        // 0.01 WETH (keep rest for gas)
-const USDC_FUND = ethers.parseUnits("70", 6);       // 70 USDC
+const USDC_FUND = ethers.parseUnits("50", 6);       // 50 USDC
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
