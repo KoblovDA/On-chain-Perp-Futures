@@ -43,7 +43,9 @@ export function PositionCard({ positionId, position, onClose, isClosing }: Posit
     debtDec === 18 ? 6 : 2
   );
 
-  const entryPrice = parseFloat(formatUnits(position.entryPrice, 18)).toFixed(2);
+  // entryPrice stored as (usdcAmount_6dec * 1e18) / wethAmount_18dec
+  // Result is 1e12 too small because USDC has 6 decimals, not 18. Format with 6 to compensate.
+  const entryPrice = parseFloat(formatUnits(position.entryPrice, 6)).toFixed(2);
   const openDate = new Date(Number(position.openTimestamp) * 1000).toLocaleDateString();
 
   return (
