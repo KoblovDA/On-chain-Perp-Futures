@@ -19,8 +19,8 @@ const WETH_USDC_RATE = ethers.parseEther("2000");
 const USDC_WETH_RATE = ethers.parseEther("0.0005");
 
 // Amount to fund the router with
-const WETH_FUND = ethers.parseEther("10");          // 10 WETH
-const USDC_FUND = ethers.parseUnits("20000", 6);    // 20,000 USDC
+const WETH_FUND = ethers.parseEther("0.01");        // 0.01 WETH (keep rest for gas)
+const USDC_FUND = ethers.parseUnits("70", 6);       // 70 USDC
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -64,17 +64,17 @@ async function main() {
   if (wethBal >= WETH_FUND) {
     tx = await weth.transfer(MOCK_SWAP_ROUTER, WETH_FUND);
     await tx.wait();
-    console.log("✓ Sent 10 WETH to router");
+    console.log(`✓ Sent ${ethers.formatEther(WETH_FUND)} WETH to router`);
   } else {
-    console.log(`⚠ Not enough WETH (have ${ethers.formatEther(wethBal)}, need 10). Get from Aave faucet.`);
+    console.log(`⚠ Not enough WETH (have ${ethers.formatEther(wethBal)}, need ${ethers.formatEther(WETH_FUND)}). Get from Aave faucet.`);
   }
 
   if (usdcBal >= USDC_FUND) {
     tx = await usdc.transfer(MOCK_SWAP_ROUTER, USDC_FUND);
     await tx.wait();
-    console.log("✓ Sent 20,000 USDC to router");
+    console.log(`✓ Sent ${ethers.formatUnits(USDC_FUND, 6)} USDC to router`);
   } else {
-    console.log(`⚠ Not enough USDC (have ${ethers.formatUnits(usdcBal, 6)}, need 20000). Get from Aave faucet.`);
+    console.log(`⚠ Not enough USDC (have ${ethers.formatUnits(usdcBal, 6)}, need ${ethers.formatUnits(USDC_FUND, 6)}). Get from Aave faucet.`);
   }
 
   // --- Final balances ---
