@@ -295,7 +295,7 @@ frontend/src/
 | PoolAddressesProvider | `0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A` |
 | Pool | `0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951` |
 | WETH | `0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c` |
-| USDC | `0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8` |
+| USDC | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
 
 All contracts are **verified on Etherscan** — source code is publicly readable.
 

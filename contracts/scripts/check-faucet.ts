@@ -6,7 +6,7 @@ async function main() {
   // The faucet is not permissioned - anyone can call mint(token, to, amount)
   // But faucet's mint function signature might differ. Let's try calling it.
   const faucetAddr = "0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D";
-  const usdcAddr = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8";
+  const usdcAddr = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
   // Try faucet with (address token, address to, uint256 amount) signature
   const faucet = await ethers.getContractAt(
