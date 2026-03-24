@@ -14,9 +14,10 @@ const MOCK_SWAP_ROUTER = "0xFdaD24fE8b093E1f20842BbF9AE80A179d80c3A9";
 const WETH = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c";
 const USDC = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8";
 
-// 1 WETH = 2000 USDC
-const WETH_USDC_RATE = ethers.parseEther("2000");
-const USDC_WETH_RATE = ethers.parseEther("0.0005");
+// Must match Aave oracle price to avoid flash loan size mismatch
+// Check with: npx hardhat run scripts/check-oracle.ts --network sepolia
+const WETH_USDC_RATE = ethers.parseEther("4000");   // 1 WETH = 4000 USDC
+const USDC_WETH_RATE = ethers.parseEther("0.00025"); // 1 USDC = 0.00025 WETH
 
 // Amount to fund the router with
 const WETH_FUND = ethers.parseEther("0.01");        // 0.01 WETH (keep rest for gas)
@@ -52,11 +53,11 @@ async function main() {
   console.log("\n--- Setting swap rates ---");
   let tx = await router.setRate(WETH, USDC, WETH_USDC_RATE, 18, 6);
   await tx.wait();
-  console.log("✓ WETH→USDC rate set: 2000");
+  console.log("✓ WETH→USDC rate set:", ethers.formatEther(WETH_USDC_RATE));
 
   tx = await router.setRate(USDC, WETH, USDC_WETH_RATE, 6, 18);
   await tx.wait();
-  console.log("✓ USDC→WETH rate set: 0.0005");
+  console.log("✓ USDC→WETH rate set:", ethers.formatEther(USDC_WETH_RATE));
 
   // --- Step 2: Fund router ---
   console.log("\n--- Funding MockSwapRouter ---");

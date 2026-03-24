@@ -18,9 +18,9 @@ const AAVE_POOL_ADDRESSES_PROVIDER = "0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A
 const WETH = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c";
 const USDC = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8";
 
-// Initial swap rate: 1 WETH = 2000 USDC
-const WETH_USDC_RATE = ethers.parseEther("2000");
-const USDC_WETH_RATE = ethers.parseEther("0.0005");
+// Initial swap rate: must match Aave oracle price
+const WETH_USDC_RATE = ethers.parseEther("4000");
+const USDC_WETH_RATE = ethers.parseEther("0.00025");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
