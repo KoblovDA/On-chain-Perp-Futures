@@ -7,6 +7,7 @@ import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {DataTypes} from "@aave/core-v3/contracts/protocol/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISwapRouter} from "./interfaces/ISwapRouter.sol";
 import {IPositionManager} from "./interfaces/IPositionManager.sol";
 import {PositionLib} from "./libraries/PositionLib.sol";
@@ -32,7 +33,7 @@ interface IERC20Metadata {
 /// SHORT flow (flash loan collateral asset — USDC, or use WETH):
 ///   Open:  flash WETH → swap WETH→USDC → deposit USDC → borrow WETH → repay flash
 ///   Close: flash WETH → repay WETH debt → withdraw USDC → swap USDC→WETH → repay flash
-contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
+contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum ActionType { OPEN_LONG, CLOSE_LONG, OPEN_SHORT, CLOSE_SHORT }
@@ -82,7 +83,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
         uint256 marginAmount,
         uint256 leverageBps,
         uint256 minCollateralOut
-    ) external override returns (uint256 positionId) {
+    ) external override nonReentrant returns (uint256 positionId) {
         require(marginAmount > 0, "PM: zero margin");
         require(leverageBps > 10000 && leverageBps <= 50000, "PM: invalid leverage");
 
@@ -118,7 +119,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
     // ============================================================
     /// @dev Flash loan WETH, swap part to USDC, repay debt, withdraw collateral, repay flash loan
 
-    function closeLong(uint256 positionId) external override {
+    function closeLong(uint256 positionId) external override nonReentrant {
         Position storage pos = positions[positionId];
         require(pos.isActive, "PM: not active");
         require(pos.owner == msg.sender, "PM: not owner");
@@ -160,7 +161,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
         uint256 marginAmount,
         uint256 leverageBps,
         uint256 minCollateralOut
-    ) external override returns (uint256 positionId) {
+    ) external override nonReentrant returns (uint256 positionId) {
         require(marginAmount > 0, "PM: zero margin");
         require(leverageBps > 10000 && leverageBps <= 50000, "PM: invalid leverage");
 
@@ -196,7 +197,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
     // ============================================================
     /// @dev Flash loan WETH, repay WETH debt, withdraw USDC, swap USDC→WETH, repay flash
 
-    function closeShort(uint256 positionId) external override {
+    function closeShort(uint256 positionId) external override nonReentrant {
         Position storage pos = positions[positionId];
         require(pos.isActive, "PM: not active");
         require(pos.owner == msg.sender, "PM: not owner");
