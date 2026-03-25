@@ -433,3 +433,256 @@ describe("PositionManager - Short Positions", function () {
     });
   });
 });
+
+describe("PositionManager - Multi-Position Isolation", function () {
+  let positionManager: any;
+  let mockRouter: any;
+  let mockPool: any;
+  let mockOracle: any;
+  let provider: any;
+  let weth: any;
+  let usdc: any;
+  let deployer: SignerWithAddress;
+  let userA: SignerWithAddress;
+  let userB: SignerWithAddress;
+
+  const LEVERAGE_2X = 20000n;
+  const LEVERAGE_3X = 30000n;
+  const MARGIN_AMOUNT = ethers.parseUnits("1000", 6);
+
+  const WETH_PRICE = 2000_00000000n;
+  const USDC_PRICE = 1_00000000n;
+
+  async function deployAll() {
+    [deployer, userA, userB] = await ethers.getSigners();
+
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    weth = await MockERC20.deploy("Wrapped ETH", "WETH", 18);
+    usdc = await MockERC20.deploy("USD Coin", "USDC", 6);
+
+    const MockPool = await ethers.getContractFactory("MockPool");
+    mockPool = await MockPool.deploy();
+    await mockPool.initReserve(await weth.getAddress());
+    await mockPool.initReserve(await usdc.getAddress());
+
+    const MockOracle = await ethers.getContractFactory("MockOracle");
+    mockOracle = await MockOracle.deploy();
+    await mockOracle.setAssetPrice(await weth.getAddress(), WETH_PRICE);
+    await mockOracle.setAssetPrice(await usdc.getAddress(), USDC_PRICE);
+
+    const MockProvider = await ethers.getContractFactory("MockPoolAddressesProvider");
+    provider = await MockProvider.deploy();
+    await provider.setPool(await mockPool.getAddress());
+    await provider.setPriceOracle(await mockOracle.getAddress());
+
+    const MockSwapRouter = await ethers.getContractFactory("MockSwapRouter");
+    mockRouter = await MockSwapRouter.deploy();
+
+    await mockRouter.setRate(
+      await weth.getAddress(), await usdc.getAddress(),
+      ethers.parseEther("2000"), 18, 6
+    );
+    await mockRouter.setRate(
+      await usdc.getAddress(), await weth.getAddress(),
+      ethers.parseEther("0.0005"), 6, 18
+    );
+
+    const PositionManager = await ethers.getContractFactory("PositionManager");
+    positionManager = await PositionManager.deploy(
+      await provider.getAddress(),
+      await mockRouter.getAddress()
+    );
+
+    const poolAddr = await mockPool.getAddress();
+    const routerAddr = await mockRouter.getAddress();
+    const pmAddr = await positionManager.getAddress();
+
+    await weth.mint(poolAddr, ethers.parseEther("10000"));
+    await usdc.mint(poolAddr, ethers.parseUnits("5000000", 6));
+
+    await weth.mint(routerAddr, ethers.parseEther("5000"));
+    await usdc.mint(routerAddr, ethers.parseUnits("10000000", 6));
+
+    await usdc.mint(userA.address, ethers.parseUnits("50000", 6));
+    await usdc.mint(userB.address, ethers.parseUnits("50000", 6));
+
+    await usdc.connect(userA).approve(pmAddr, ethers.MaxUint256);
+    await weth.connect(userA).approve(pmAddr, ethers.MaxUint256);
+    await usdc.connect(userB).approve(pmAddr, ethers.MaxUint256);
+    await weth.connect(userB).approve(pmAddr, ethers.MaxUint256);
+  }
+
+  beforeEach(async function () {
+    await deployAll();
+  });
+
+  describe("concurrent long positions", function () {
+    it("closing first long should not affect second long", async function () {
+      await positionManager
+        .connect(userA)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_3X, 0);
+
+      const posB_before = await positionManager.getPosition(1);
+      expect(posB_before.isActive).to.be.true;
+
+      await positionManager.connect(userA).closeLong(0);
+
+      const posA = await positionManager.getPosition(0);
+      expect(posA.isActive).to.be.false;
+
+      const posB_after = await positionManager.getPosition(1);
+      expect(posB_after.isActive).to.be.true;
+      expect(posB_after.collateralAmount).to.equal(posB_before.collateralAmount);
+      expect(posB_after.debtAmount).to.equal(posB_before.debtAmount);
+    });
+
+    it("both longs can be closed independently and return funds", async function () {
+      const balA_initial = await usdc.balanceOf(userA.address);
+      const balB_initial = await usdc.balanceOf(userB.address);
+
+      await positionManager
+        .connect(userA)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      const balA_afterOpen = await usdc.balanceOf(userA.address);
+      const balB_afterOpen = await usdc.balanceOf(userB.address);
+      expect(balA_afterOpen).to.equal(balA_initial - MARGIN_AMOUNT);
+      expect(balB_afterOpen).to.equal(balB_initial - MARGIN_AMOUNT);
+
+      await positionManager.connect(userA).closeLong(0);
+      const balA_afterClose = await usdc.balanceOf(userA.address);
+      expect(balA_afterClose).to.be.gt(balA_afterOpen);
+
+      await positionManager.connect(userB).closeLong(1);
+      const balB_afterClose = await usdc.balanceOf(userB.address);
+      expect(balB_afterClose).to.be.gt(balB_afterOpen);
+
+      expect((await positionManager.getPosition(0)).isActive).to.be.false;
+      expect((await positionManager.getPosition(1)).isActive).to.be.false;
+    });
+  });
+
+  describe("concurrent short positions", function () {
+    it("closing first short should not affect second short", async function () {
+      await positionManager
+        .connect(userA)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      const posB_before = await positionManager.getPosition(1);
+
+      await positionManager.connect(userA).closeShort(0);
+
+      const posA = await positionManager.getPosition(0);
+      expect(posA.isActive).to.be.false;
+
+      const posB_after = await positionManager.getPosition(1);
+      expect(posB_after.isActive).to.be.true;
+      expect(posB_after.collateralAmount).to.equal(posB_before.collateralAmount);
+      expect(posB_after.debtAmount).to.equal(posB_before.debtAmount);
+    });
+
+    it("both shorts can be closed independently and return funds", async function () {
+      await positionManager
+        .connect(userA)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      const balA_afterOpen = await usdc.balanceOf(userA.address);
+      const balB_afterOpen = await usdc.balanceOf(userB.address);
+
+      await positionManager.connect(userA).closeShort(0);
+      expect(await usdc.balanceOf(userA.address)).to.be.gt(balA_afterOpen);
+
+      await positionManager.connect(userB).closeShort(1);
+      expect(await usdc.balanceOf(userB.address)).to.be.gt(balB_afterOpen);
+    });
+  });
+
+  describe("concurrent long + short positions", function () {
+    it("closing long should not affect concurrent short", async function () {
+      await positionManager
+        .connect(userA)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      const shortBefore = await positionManager.getPosition(1);
+
+      await positionManager.connect(userA).closeLong(0);
+
+      const shortAfter = await positionManager.getPosition(1);
+      expect(shortAfter.isActive).to.be.true;
+      expect(shortAfter.collateralAmount).to.equal(shortBefore.collateralAmount);
+      expect(shortAfter.debtAmount).to.equal(shortBefore.debtAmount);
+
+      await positionManager.connect(userB).closeShort(1);
+      expect((await positionManager.getPosition(1)).isActive).to.be.false;
+    });
+
+    it("closing short should not affect concurrent long", async function () {
+      await positionManager
+        .connect(userA)
+        .openShort(await usdc.getAddress(), await weth.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userB)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      const longBefore = await positionManager.getPosition(1);
+
+      await positionManager.connect(userA).closeShort(0);
+
+      const longAfter = await positionManager.getPosition(1);
+      expect(longAfter.isActive).to.be.true;
+      expect(longAfter.collateralAmount).to.equal(longBefore.collateralAmount);
+      expect(longAfter.debtAmount).to.equal(longBefore.debtAmount);
+
+      await positionManager.connect(userB).closeLong(1);
+      expect((await positionManager.getPosition(1)).isActive).to.be.false;
+    });
+  });
+
+  describe("three concurrent positions", function () {
+    it("should handle open-close-open-close-close sequence correctly", async function () {
+      await positionManager
+        .connect(userA)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+      await positionManager
+        .connect(userA)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_3X, 0);
+      await positionManager
+        .connect(userB)
+        .openLong(await weth.getAddress(), await usdc.getAddress(), MARGIN_AMOUNT, LEVERAGE_2X, 0);
+
+      expect(await positionManager.positionCount()).to.equal(3);
+
+      // Close middle position first
+      await positionManager.connect(userA).closeLong(1);
+      expect((await positionManager.getPosition(1)).isActive).to.be.false;
+      expect((await positionManager.getPosition(0)).isActive).to.be.true;
+      expect((await positionManager.getPosition(2)).isActive).to.be.true;
+
+      // Close first position
+      await positionManager.connect(userA).closeLong(0);
+      expect((await positionManager.getPosition(0)).isActive).to.be.false;
+      expect((await positionManager.getPosition(2)).isActive).to.be.true;
+
+      // Close last position
+      const balB_before = await usdc.balanceOf(userB.address);
+      await positionManager.connect(userB).closeLong(2);
+      expect((await positionManager.getPosition(2)).isActive).to.be.false;
+      expect(await usdc.balanceOf(userB.address)).to.be.gt(balB_before);
+    });
+  });
+});
