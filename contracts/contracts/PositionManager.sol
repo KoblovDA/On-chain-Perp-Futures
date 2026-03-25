@@ -54,6 +54,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
 
     mapping(uint256 => Position) public positions;
     mapping(address => uint256[]) internal _userPositionIds;
+    mapping(address => uint256) internal _totalBorrowed;
 
     uint256 private constant VARIABLE_RATE_MODE = 2;
     uint16 private constant REFERRAL_CODE = 0;
@@ -123,10 +124,9 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
         require(pos.owner == msg.sender, "PM: not owner");
         require(pos.positionType == PositionType.LONG, "PM: not long");
 
-        // We need WETH to swap→USDC→repay debt, then withdraw WETH collateral to repay flash
-        // Flash loan enough WETH to cover: debt (converted to WETH) + premium buffer
-        uint256 currentDebt = _getVariableDebt(pos.debtAsset);
-        uint256 wethNeeded = _convertUsingOracle(pos.debtAsset, pos.collateralAsset, currentDebt);
+        // Flash loan enough WETH to cover: this position's debt (converted to WETH) + buffer
+        uint256 positionDebt = _getPositionDebt(pos.debtAsset, pos.debtAmount);
+        uint256 wethNeeded = _convertUsingOracle(pos.debtAsset, pos.collateralAsset, positionDebt);
         // Add 1% buffer for swap slippage and flash loan premium
         wethNeeded = (wethNeeded * 101) / 100;
 
@@ -202,9 +202,9 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
         require(pos.owner == msg.sender, "PM: not owner");
         require(pos.positionType == PositionType.SHORT, "PM: not short");
 
-        uint256 currentDebt = _getVariableDebt(pos.debtAsset);
+        uint256 positionDebt = _getPositionDebt(pos.debtAsset, pos.debtAmount);
         // Add 1% buffer
-        uint256 flashAmount = (currentDebt * 101) / 100;
+        uint256 flashAmount = (positionDebt * 101) / 100;
 
         bytes memory params = abi.encode(FlashParams({
             action: ActionType.CLOSE_SHORT,
@@ -290,8 +290,10 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
     // ============================================================
     /// Flash loaned WETH. Swap WETH→USDC → repay debt → withdraw WETH → repay flash
     function _executeCloseLong(uint256 wethFlashed, uint256 premium, FlashParams memory fp) internal {
-        // Step 1: Get current USDC debt
-        uint256 currentDebt = _getVariableDebt(fp.debtAsset);
+        Position storage pos = positions[fp.positionId];
+
+        // Step 1: Get this position's proportional share of USDC debt
+        uint256 currentDebt = _getPositionDebt(fp.debtAsset, pos.debtAmount);
 
         // Step 2: Swap enough WETH → USDC to cover the debt
         IERC20(fp.collateralAsset).approve(address(swapRouter), wethFlashed);
@@ -307,8 +309,10 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
         IERC20(fp.debtAsset).approve(address(POOL), currentDebt);
         POOL.repay(fp.debtAsset, currentDebt, VARIABLE_RATE_MODE, address(this));
 
-        // Step 4: Withdraw all WETH collateral from Aave
-        uint256 withdrawnWeth = POOL.withdraw(fp.collateralAsset, type(uint256).max, address(this));
+        // Step 4: Withdraw this position's WETH collateral from Aave
+        uint256 withdrawnWeth = POOL.withdraw(fp.collateralAsset, pos.collateralAmount, address(this));
+
+        _totalBorrowed[fp.debtAsset] -= pos.debtAmount;
 
         // Step 5: Repay flash loan (wethFlashed + premium) from withdrawn WETH + remaining flashed WETH
         // Total WETH we have: withdrawnWeth + (wethFlashed - wethSpent)
@@ -367,17 +371,21 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
     // ============================================================
     /// Flash loaned WETH. Repay WETH debt → withdraw USDC → swap USDC→WETH → repay flash
     function _executeCloseShort(uint256 wethFlashed, uint256 premium, FlashParams memory fp) internal {
-        // Step 1: Repay WETH debt
-        uint256 currentDebt = _getVariableDebt(fp.debtAsset);
+        Position storage pos = positions[fp.positionId];
+
+        // Step 1: Repay this position's WETH debt
+        uint256 currentDebt = _getPositionDebt(fp.debtAsset, pos.debtAmount);
         IERC20(fp.debtAsset).approve(address(POOL), currentDebt);
         POOL.repay(fp.debtAsset, currentDebt, VARIABLE_RATE_MODE, address(this));
 
-        // Step 2: Withdraw all USDC collateral
-        uint256 withdrawnUsdc = POOL.withdraw(fp.collateralAsset, type(uint256).max, address(this));
+        // Step 2: Withdraw this position's USDC collateral
+        uint256 withdrawnUsdc = POOL.withdraw(fp.collateralAsset, pos.collateralAmount, address(this));
+
+        _totalBorrowed[fp.debtAsset] -= pos.debtAmount;
 
         // Step 3: Swap enough USDC → WETH to repay flash loan
         uint256 flashRepay = wethFlashed + premium;
-        uint256 wethAlready = wethFlashed - currentDebt; // leftover WETH from flash after repaying debt
+        uint256 wethAlready = wethFlashed - currentDebt;
         uint256 wethStillNeeded = flashRepay - wethAlready;
 
         IERC20(fp.collateralAsset).approve(address(swapRouter), withdrawnUsdc);
@@ -422,6 +430,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
             isActive: true
         });
         _userPositionIds[fp.user].push(fp.positionId);
+        _totalBorrowed[fp.debtAsset] += debtAmount;
 
         emit PositionOpened(
             fp.positionId, fp.user, posType,
@@ -449,6 +458,14 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager {
     function _getVariableDebt(address asset) internal view returns (uint256) {
         DataTypes.ReserveData memory data = POOL.getReserveData(asset);
         return IERC20(data.variableDebtTokenAddress).balanceOf(address(this));
+    }
+
+    /// @dev Calculate a single position's proportional share of accrued debt
+    function _getPositionDebt(address debtAsset, uint256 initialDebt) internal view returns (uint256) {
+        uint256 totalInitial = _totalBorrowed[debtAsset];
+        if (totalInitial == 0) return initialDebt;
+        uint256 totalCurrent = _getVariableDebt(debtAsset);
+        return (initialDebt * totalCurrent) / totalInitial;
     }
 
     // ============================================================
