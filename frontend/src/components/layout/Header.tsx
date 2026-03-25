@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
+import { getNetworkLabel, isLocalNetwork } from "@/lib/network-config";
 
 const NAV_ITEMS = [
   { href: "/trade", label: "Trade" },
@@ -11,6 +13,9 @@ const NAV_ITEMS = [
 
 export function Header() {
   const pathname = usePathname();
+  const { chain } = useAccount();
+  const networkLabel = getNetworkLabel(chain?.id);
+  const isLocal = isLocalNetwork(chain?.id);
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
@@ -23,9 +28,17 @@ export function Header() {
           <span className="hidden sm:inline text-lg font-semibold text-white">
             Leveraged Trading
           </span>
-          <span className="hidden sm:inline rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400 uppercase tracking-wider">
-            Sepolia
-          </span>
+          {chain && (
+            <span
+              className={`hidden sm:inline rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                isLocal
+                  ? "bg-emerald-600/20 text-emerald-400"
+                  : "bg-amber-600/20 text-amber-400"
+              }`}
+            >
+              {networkLabel}
+            </span>
+          )}
         </Link>
 
         {/* Navigation */}

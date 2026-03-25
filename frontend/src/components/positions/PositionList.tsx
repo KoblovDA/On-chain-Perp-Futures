@@ -10,11 +10,13 @@ import {
   useCloseLong,
   useCloseShort,
 } from "@/hooks/usePositionManager";
-import { POSITION_MANAGER_ADDRESS, POSITION_MANAGER_ABI } from "@/lib/contracts";
+import { POSITION_MANAGER_ABI } from "@/lib/contracts";
+import { useNetworkAddresses } from "@/hooks/useNetworkAddresses";
 import { PositionCard, type Position } from "./PositionCard";
 
 export function PositionList() {
   const { address, isConnected } = useAccount();
+  const addrs = useNetworkAddresses();
   const { data: positionIds, isLoading: isLoadingIds, refetch: refetchIds } =
     useUserPositions(address);
 
@@ -23,7 +25,7 @@ export function PositionList() {
   const [closingId, setClosingId] = useState<bigint | null>(null);
 
   const contracts = (positionIds || []).map((id) => ({
-    address: POSITION_MANAGER_ADDRESS,
+    address: addrs.POSITION_MANAGER,
     abi: POSITION_MANAGER_ABI,
     functionName: "getPosition" as const,
     args: [id] as const,

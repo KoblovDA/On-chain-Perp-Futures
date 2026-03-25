@@ -13,7 +13,7 @@ import {
   useOpenLong,
   useOpenShort,
 } from "@/hooks/usePositionManager";
-import { USDC_ADDRESS, POSITION_MANAGER_ADDRESS } from "@/lib/contracts";
+import { useNetworkAddresses } from "@/hooks/useNetworkAddresses";
 import { parseError } from "@/lib/errors";
 
 type Side = "long" | "short";
@@ -29,16 +29,17 @@ const LEVERAGE_MARKS = [
 
 export function TradePanel() {
   const { address, isConnected } = useAccount();
+  const addrs = useNetworkAddresses();
 
   const [side, setSide] = useState<Side>("long");
   const [marginInput, setMarginInput] = useState("");
   const [leverageBps, setLeverageBps] = useState(20000);
 
-  const { data: usdcBalance, refetch: refetchBalance } = useTokenBalance(USDC_ADDRESS, address, { refetchInterval: 5000 });
+  const { data: usdcBalance, refetch: refetchBalance } = useTokenBalance(addrs.USDC, address, { refetchInterval: 5000 });
   const { data: allowance, refetch: refetchAllowance } = useAllowance(
-    USDC_ADDRESS,
+    addrs.USDC,
     address,
-    POSITION_MANAGER_ADDRESS
+    addrs.POSITION_MANAGER
   );
 
   const approve = useApproveToken();
@@ -100,7 +101,7 @@ export function TradePanel() {
 
   const handleApprove = () => {
     toast.loading("Waiting for approval...", { id: "approve" });
-    approve.approve(USDC_ADDRESS, maxUint256);
+    approve.approve(addrs.USDC, maxUint256);
   };
 
   const handleTrade = () => {

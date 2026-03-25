@@ -3,7 +3,7 @@
 import { formatUnits } from "viem";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { WETH_ADDRESS } from "@/lib/contracts";
+import { useNetworkAddresses } from "@/hooks/useNetworkAddresses";
 
 export interface Position {
   owner: string;
@@ -27,15 +27,16 @@ interface PositionCardProps {
 }
 
 export function PositionCard({ positionId, position, onClose, isClosing }: PositionCardProps) {
+  const addrs = useNetworkAddresses();
   const isLong = position.positionType === 0;
   const leverage = (Number(position.leverageBps) / 10000).toFixed(1);
   const margin = formatUnits(position.marginAmount, 6);
   const totalPosition = (parseFloat(margin) * Number(position.leverageBps) / 10000).toFixed(2);
 
   const collateralDec =
-    position.collateralAsset.toLowerCase() === WETH_ADDRESS.toLowerCase() ? 18 : 6;
+    position.collateralAsset.toLowerCase() === addrs.WETH.toLowerCase() ? 18 : 6;
   const debtDec =
-    position.debtAsset.toLowerCase() === WETH_ADDRESS.toLowerCase() ? 18 : 6;
+    position.debtAsset.toLowerCase() === addrs.WETH.toLowerCase() ? 18 : 6;
   const collateral = parseFloat(formatUnits(position.collateralAmount, collateralDec)).toFixed(
     collateralDec === 18 ? 6 : 2
   );

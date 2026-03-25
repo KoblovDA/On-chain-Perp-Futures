@@ -2,27 +2,24 @@
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { type Address } from "viem";
-import {
-  POSITION_MANAGER_ADDRESS,
-  POSITION_MANAGER_ABI,
-  ERC20_ABI,
-  WETH_ADDRESS,
-  USDC_ADDRESS,
-} from "@/lib/contracts";
+import { POSITION_MANAGER_ABI, ERC20_ABI } from "@/lib/contracts";
+import { useNetworkAddresses } from "./useNetworkAddresses";
 
 // ===== Read hooks =====
 
 export function usePositionCount() {
+  const addrs = useNetworkAddresses();
   return useReadContract({
-    address: POSITION_MANAGER_ADDRESS,
+    address: addrs.POSITION_MANAGER,
     abi: POSITION_MANAGER_ABI,
     functionName: "positionCount",
   });
 }
 
 export function usePosition(positionId: bigint) {
+  const addrs = useNetworkAddresses();
   return useReadContract({
-    address: POSITION_MANAGER_ADDRESS,
+    address: addrs.POSITION_MANAGER,
     abi: POSITION_MANAGER_ABI,
     functionName: "getPosition",
     args: [positionId],
@@ -30,8 +27,9 @@ export function usePosition(positionId: bigint) {
 }
 
 export function useUserPositions(user: Address | undefined) {
+  const addrs = useNetworkAddresses();
   return useReadContract({
-    address: POSITION_MANAGER_ADDRESS,
+    address: addrs.POSITION_MANAGER,
     abi: POSITION_MANAGER_ABI,
     functionName: "getUserPositions",
     args: user ? [user] : undefined,
@@ -62,6 +60,7 @@ export function useAllowance(token: Address, owner: Address | undefined, spender
 // ===== Write hooks =====
 
 export function useApproveToken() {
+  const addrs = useNetworkAddresses();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -70,7 +69,7 @@ export function useApproveToken() {
       address: token,
       abi: ERC20_ABI,
       functionName: "approve",
-      args: [POSITION_MANAGER_ADDRESS, amount],
+      args: [addrs.POSITION_MANAGER, amount],
     });
   };
 
@@ -78,15 +77,16 @@ export function useApproveToken() {
 }
 
 export function useOpenLong() {
+  const addrs = useNetworkAddresses();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const openLong = (marginAmount: bigint, leverageBps: bigint) => {
     writeContract({
-      address: POSITION_MANAGER_ADDRESS,
+      address: addrs.POSITION_MANAGER,
       abi: POSITION_MANAGER_ABI,
       functionName: "openLong",
-      args: [WETH_ADDRESS, USDC_ADDRESS, marginAmount, leverageBps, 0n],
+      args: [addrs.WETH, addrs.USDC, marginAmount, leverageBps, 0n],
     });
   };
 
@@ -94,15 +94,16 @@ export function useOpenLong() {
 }
 
 export function useOpenShort() {
+  const addrs = useNetworkAddresses();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const openShort = (marginAmount: bigint, leverageBps: bigint) => {
     writeContract({
-      address: POSITION_MANAGER_ADDRESS,
+      address: addrs.POSITION_MANAGER,
       abi: POSITION_MANAGER_ABI,
       functionName: "openShort",
-      args: [USDC_ADDRESS, WETH_ADDRESS, marginAmount, leverageBps, 0n],
+      args: [addrs.USDC, addrs.WETH, marginAmount, leverageBps, 0n],
     });
   };
 
@@ -110,12 +111,13 @@ export function useOpenShort() {
 }
 
 export function useCloseLong() {
+  const addrs = useNetworkAddresses();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const closeLong = (positionId: bigint) => {
     writeContract({
-      address: POSITION_MANAGER_ADDRESS,
+      address: addrs.POSITION_MANAGER,
       abi: POSITION_MANAGER_ABI,
       functionName: "closeLong",
       args: [positionId],
@@ -126,12 +128,13 @@ export function useCloseLong() {
 }
 
 export function useCloseShort() {
+  const addrs = useNetworkAddresses();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const closeShort = (positionId: bigint) => {
     writeContract({
-      address: POSITION_MANAGER_ADDRESS,
+      address: addrs.POSITION_MANAGER,
       abi: POSITION_MANAGER_ABI,
       functionName: "closeShort",
       args: [positionId],
