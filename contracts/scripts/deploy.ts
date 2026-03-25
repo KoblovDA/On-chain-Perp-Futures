@@ -41,11 +41,11 @@ async function main() {
   console.log("MockSwapRouter deployed at:", swapRouterAddr);
 
   // Set swap rates
-  console.log("Setting WETH→USDC rate: 2000");
+  console.log("Setting WETH→USDC rate: 4000");
   let tx = await swapRouter.setRate(WETH, USDC, WETH_USDC_RATE, 18, 6);
   await tx.wait();
 
-  console.log("Setting USDC→WETH rate: 0.0005");
+  console.log("Setting USDC→WETH rate: 0.00025");
   tx = await swapRouter.setRate(USDC, WETH, USDC_WETH_RATE, 6, 18);
   await tx.wait();
 
