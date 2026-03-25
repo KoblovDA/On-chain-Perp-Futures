@@ -248,7 +248,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         }
 
         // Approve Pool to pull back flash loan + premium
-        IERC20(asset).approve(address(POOL), amount + premium);
+        IERC20(asset).forceApprove(address(POOL), amount + premium);
         return true;
     }
 
@@ -258,7 +258,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
     /// Flash loaned WETH. Deposit → borrow USDC → swap USDC+margin→WETH → repay flash
     function _executeOpenLong(uint256 wethAmount, uint256 premium, FlashParams memory fp) internal {
         // Step 1: Deposit all WETH as collateral in Aave
-        IERC20(fp.collateralAsset).approve(address(POOL), wethAmount);
+        IERC20(fp.collateralAsset).forceApprove(address(POOL), wethAmount);
         POOL.supply(fp.collateralAsset, wethAmount, address(this), REFERRAL_CODE);
 
         // Step 2: Borrow USDC from Aave
@@ -271,7 +271,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         uint256 totalUsdc = borrowAmount + fp.marginAmount;
         uint256 wethNeeded = wethAmount + premium;
 
-        IERC20(fp.debtAsset).approve(address(swapRouter), totalUsdc);
+        IERC20(fp.debtAsset).forceApprove(address(swapRouter), totalUsdc);
         swapRouter.swapExactInput(
             fp.debtAsset,       // pay with USDC
             fp.collateralAsset, // receive WETH
@@ -297,7 +297,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         uint256 currentDebt = _getPositionDebt(fp.debtAsset, pos.debtAmount);
 
         // Step 2: Swap enough WETH → USDC to cover the debt
-        IERC20(fp.collateralAsset).approve(address(swapRouter), wethFlashed);
+        IERC20(fp.collateralAsset).forceApprove(address(swapRouter), wethFlashed);
         uint256 wethSpent = swapRouter.swapExactOutput(
             fp.collateralAsset, // pay with WETH
             fp.debtAsset,       // receive USDC
@@ -307,7 +307,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         );
 
         // Step 3: Repay USDC debt to Aave
-        IERC20(fp.debtAsset).approve(address(POOL), currentDebt);
+        IERC20(fp.debtAsset).forceApprove(address(POOL), currentDebt);
         POOL.repay(fp.debtAsset, currentDebt, VARIABLE_RATE_MODE, address(this));
 
         // Step 4: Withdraw this position's WETH collateral from Aave
@@ -325,7 +325,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         uint256 remainderUsdc = 0;
         if (remainderWeth > 0) {
             // Swap remaining WETH → USDC and send to user
-            IERC20(fp.collateralAsset).approve(address(swapRouter), remainderWeth);
+            IERC20(fp.collateralAsset).forceApprove(address(swapRouter), remainderWeth);
             remainderUsdc = swapRouter.swapExactInput(
                 fp.collateralAsset, fp.debtAsset, remainderWeth, 0, fp.user
             );
@@ -343,7 +343,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
     /// Flash loaned WETH. Swap WETH→USDC → deposit USDC → borrow WETH → repay flash
     function _executeOpenShort(uint256 wethFlashed, uint256 premium, FlashParams memory fp) internal {
         // Step 1: Swap all flash-loaned WETH → USDC
-        IERC20(fp.debtAsset).approve(address(swapRouter), wethFlashed);
+        IERC20(fp.debtAsset).forceApprove(address(swapRouter), wethFlashed);
         uint256 usdcReceived = swapRouter.swapExactInput(
             fp.debtAsset,         // WETH
             fp.collateralAsset,   // USDC
@@ -354,7 +354,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
 
         // Step 2: Deposit USDC (from swap + margin) as collateral
         uint256 totalCollateral = usdcReceived + fp.marginAmount;
-        IERC20(fp.collateralAsset).approve(address(POOL), totalCollateral);
+        IERC20(fp.collateralAsset).forceApprove(address(POOL), totalCollateral);
         POOL.supply(fp.collateralAsset, totalCollateral, address(this), REFERRAL_CODE);
 
         // Step 3: Borrow WETH from Aave to repay flash loan
@@ -376,7 +376,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
 
         // Step 1: Repay this position's WETH debt
         uint256 currentDebt = _getPositionDebt(fp.debtAsset, pos.debtAmount);
-        IERC20(fp.debtAsset).approve(address(POOL), currentDebt);
+        IERC20(fp.debtAsset).forceApprove(address(POOL), currentDebt);
         POOL.repay(fp.debtAsset, currentDebt, VARIABLE_RATE_MODE, address(this));
 
         // Step 2: Withdraw this position's USDC collateral
@@ -389,7 +389,7 @@ contract PositionManager is FlashLoanSimpleReceiverBase, IPositionManager, Reent
         uint256 wethAlready = wethFlashed - currentDebt;
         uint256 wethStillNeeded = flashRepay - wethAlready;
 
-        IERC20(fp.collateralAsset).approve(address(swapRouter), withdrawnUsdc);
+        IERC20(fp.collateralAsset).forceApprove(address(swapRouter), withdrawnUsdc);
         uint256 usdcSpent = swapRouter.swapExactOutput(
             fp.collateralAsset, fp.debtAsset, wethStillNeeded, withdrawnUsdc, address(this)
         );
