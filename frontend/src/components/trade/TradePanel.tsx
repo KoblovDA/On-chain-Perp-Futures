@@ -28,8 +28,9 @@ const LEVERAGE_MARKS = [
 ];
 
 export function TradePanel() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const addrs = useNetworkAddresses();
+  const networkLabel = chain?.id === 31337 ? "Local Hardhat" : "Sepolia";
 
   const [side, setSide] = useState<Side>("long");
   const [marginInput, setMarginInput] = useState("");
@@ -132,7 +133,7 @@ export function TradePanel() {
     <Card className="w-full max-w-md border-zinc-800 bg-zinc-900">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl">Open Position</CardTitle>
-        <p className="text-sm text-zinc-400">WETH / USDC on Sepolia</p>
+        <p className="text-sm text-zinc-400">WETH / USDC on {networkLabel}</p>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Long / Short toggle */}
